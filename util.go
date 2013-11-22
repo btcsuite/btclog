@@ -5,8 +5,10 @@
 package btclog
 
 import (
+	"fmt"
 	"github.com/conformal/seelog"
 	"io"
+	"os"
 	"strings"
 )
 
@@ -35,4 +37,27 @@ func NewLoggerFromWriter(w io.Writer, minLevel LogLevel) (Logger, error) {
 	}
 
 	return NewSubsystemLogger(l, ""), nil
+}
+
+// NewBackendLogger returns a new seelog logger with default settings that
+// can be used as a backend for SubsystemLoggers.
+func NewBackendLogger() seelog.LoggerInterface {
+	config := `
+	<seelog type="adaptive" mininterval="2000000" maxinterval="100000000"
+		critmsgcount="500" minlevel="trace">
+		<outputs formatid="all">
+			<console/>
+		</outputs>
+		<formats>
+			<format id="all" format="%Time %Date [%LEV] %Msg%n" />
+		</formats>
+	</seelog>`
+
+	logger, err := seelog.LoggerFromConfigAsString(config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create logger: %v", err)
+		os.Exit(1)
+	}
+
+	return logger
 }
