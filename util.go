@@ -39,9 +39,9 @@ func NewLoggerFromWriter(w io.Writer, minLevel LogLevel) (Logger, error) {
 	return NewSubsystemLogger(l, ""), nil
 }
 
-// NewBackendLogger returns a new seelog logger with default settings that
-// can be used as a backend for SubsystemLoggers.
-func NewBackendLogger() seelog.LoggerInterface {
+// NewDefaultBackendLogger returns a new seelog logger with default settings
+// that can be used as a backend for SubsystemLoggers.
+func NewDefaultBackendLogger() seelog.LoggerInterface {
 	config := `
 	<seelog type="adaptive" mininterval="2000000" maxinterval="100000000"
 		critmsgcount="500" minlevel="trace">
