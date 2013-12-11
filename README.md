@@ -1,6 +1,9 @@
 btclog
 ======
 
+[![Build Status](https://travis-ci.org/conformal/btclog.png?branch=master)]
+(https://travis-ci.org/conformal/btclog)
+
 Package btclog implements a subsystem aware logger backed by seelog.
 
 Seelog allows you to specify different levels per backend such as console and
