@@ -36,7 +36,10 @@ func NewLoggerFromWriter(w io.Writer, minLevel LogLevel) (Logger, error) {
 		return nil, err
 	}
 
-	return NewSubsystemLogger(l, ""), nil
+	logger := NewSubsystemLogger(l, "")
+	logger.SetLevel(minLevel)
+
+	return logger, nil
 }
 
 // NewDefaultBackendLogger returns a new seelog logger with default settings
