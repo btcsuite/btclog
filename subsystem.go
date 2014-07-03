@@ -6,6 +6,7 @@ package btclog
 
 import (
 	"fmt"
+
 	"github.com/conformal/seelog"
 )
 

@@ -6,10 +6,11 @@ package btclog
 
 import (
 	"fmt"
-	"github.com/conformal/seelog"
 	"io"
 	"os"
 	"strings"
+
+	"github.com/conformal/seelog"
 )
 
 // Disabled is a default logger that can be used to disable all logging output.
