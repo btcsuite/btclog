@@ -18,16 +18,16 @@ subsystem.  All messages are then passed along to the backend seelog logger.
 
 Full `go doc` style documentation for the project can be viewed online without
 installing this package by using the GoDoc site here:
-http://godoc.org/github.com/conformal/btclog
+http://godoc.org/github.com/btcsuite/btclog
 
 You can also view the documentation locally once the package is installed with
 the `godoc` tool by running `godoc -http=":6060"` and pointing your browser to
-http://localhost:6060/pkg/github.com/conformal/btclog
+http://localhost:6060/pkg/github.com/btcsuite/btclog
 
 ## Installation
 
 ```bash
-$ go get github.com/conformal/btclog
+$ go get github.com/btcsuite/btclog
 ```
 
 ## GPG Verification Key
