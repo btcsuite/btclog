@@ -7,7 +7,7 @@ package btclog
 import (
 	"fmt"
 
-	"github.com/conformal/seelog"
+	"github.com/btcsuite/seelog"
 )
 
 // Ensure SubsystemLogger implements the Logger interface.
