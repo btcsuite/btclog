@@ -37,11 +37,42 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
+
+// defaultFlags specifies changes to the default logger behavior.  It is set
+// during package init and configured using the LOGFLAGS environment variable.
+// New logger backends can override these default flags using WithFlags.
+var defaultFlags uint32
+
+// Flags to modify Backend's behavior.
+const (
+	// Llongfile modifies the logger output to include full path and line number
+	// of the logging callsite, e.g. /a/b/c/main.go:123.
+	Llongfile uint32 = 1 << iota
+
+	// Lshortfile modifies the logger output to include filename and line number
+	// of the logging callsite, e.g. main.go:123.  Overrides Llongfile.
+	Lshortfile
+)
+
+// Read logger flags from the LOGFLAGS environment variable.  Multiple flags can
+// be set at once, separated by commas.
+func init() {
+	for _, f := range strings.Split(os.Getenv("LOGFLAGS"), ",") {
+		switch f {
+		case "longfile":
+			defaultFlags |= Llongfile
+		case "shortfile":
+			defaultFlags |= Lshortfile
+		}
+	}
+}
 
 // Level is the level at which a logger is configured.  All messages sent
 // to a level which is below the current level are filtered.
@@ -95,16 +126,33 @@ func (l Level) String() string {
 }
 
 // NewBackend creates a logger backend from a Writer.
-func NewBackend(w io.Writer) *Backend {
-	return &Backend{w: w}
+func NewBackend(w io.Writer, opts ...BackendOption) *Backend {
+	b := &Backend{w: w, flag: defaultFlags}
+	for _, o := range opts {
+		o(b)
+	}
+	return b
 }
 
 // Backend is a logging backend.  Subsystems created from the backend write to
 // the backend's Writer.  Backend provides atomic writes to the Writer from all
 // subsystems.
 type Backend struct {
-	w  io.Writer
-	mu sync.Mutex // ensures atomic writes
+	w    io.Writer
+	mu   sync.Mutex // ensures atomic writes
+	flag uint32
+}
+
+// BackendOption is a function used to modify the behavior of a Backend.
+type BackendOption func(b *Backend)
+
+// WithFlags configures a Backend to use the specified flags rather than using
+// the package's defaults as determined through the LOGFLAGS environment
+// variable.
+func WithFlags(flags uint32) BackendOption {
+	return func(b *Backend) {
+		b.flag = flags
+	}
 }
 
 // bufferPool defines a concurrent safe free list of byte slices used to provide
@@ -150,8 +198,10 @@ func itoa(buf *[]byte, i int, wid int) {
 	*buf = append(*buf, b[bp:]...)
 }
 
-// Appends a header in the format 'YYYY-MM-DD hh:mm:ss.sss [LVL] TAG: '.
-func formatHeader(buf *[]byte, t time.Time, lvl, tag string) {
+// Appends a header in the default format 'YYYY-MM-DD hh:mm:ss.sss [LVL] TAG: '.
+// If either of the Lshortfile or Llongfile flags are specified, the file named
+// and line number are included after the tag and before the final colon.
+func formatHeader(buf *[]byte, t time.Time, lvl, tag string, file string, line int) {
 	year, month, day := t.Date()
 	hour, min, sec := t.Clock()
 	ms := t.Nanosecond() / 1e6
@@ -173,7 +223,39 @@ func formatHeader(buf *[]byte, t time.Time, lvl, tag string) {
 	*buf = append(*buf, lvl...)
 	*buf = append(*buf, "] "...)
 	*buf = append(*buf, tag...)
+	if file != "" {
+		*buf = append(*buf, ' ')
+		*buf = append(*buf, file...)
+		*buf = append(*buf, ':')
+		itoa(buf, line, -1)
+	}
 	*buf = append(*buf, ": "...)
+}
+
+// calldepth is the call depth of the callsite function relative to the
+// caller of the subsystem logger.  It is used to recover the filename and line
+// number of the logging call if either the short or long file flags are
+// specified.
+const calldepth = 3
+
+// callsite returns the file name and line number of the callsite to the
+// subsystem logger.
+func callsite(flag uint32) (string, int) {
+	_, file, line, ok := runtime.Caller(calldepth)
+	if !ok {
+		return "???", 0
+	}
+	if flag&Lshortfile != 0 {
+		short := file
+		for i := len(file) - 1; i > 0; i-- {
+			if os.IsPathSeparator(file[i]) {
+				short = file[i+1:]
+				break
+			}
+		}
+		file = short
+	}
+	return file, line
 }
 
 // print outputs a log message to the writer associated with the backend after
@@ -185,7 +267,13 @@ func (b *Backend) print(lvl, tag string, args ...interface{}) {
 
 	bytebuf := buffer()
 
-	formatHeader(bytebuf, t, lvl, tag)
+	var file string
+	var line int
+	if b.flag&(Lshortfile|Llongfile) != 0 {
+		file, line = callsite(b.flag)
+	}
+
+	formatHeader(bytebuf, t, lvl, tag, file, line)
 	buf := bytes.NewBuffer(*bytebuf)
 	fmt.Fprintln(buf, args...)
 	*bytebuf = buf.Bytes()
@@ -206,7 +294,13 @@ func (b *Backend) printf(lvl, tag string, format string, args ...interface{}) {
 
 	bytebuf := buffer()
 
-	formatHeader(bytebuf, t, lvl, tag)
+	var file string
+	var line int
+	if b.flag&(Lshortfile|Llongfile) != 0 {
+		file, line = callsite(b.flag)
+	}
+
+	formatHeader(bytebuf, t, lvl, tag, file, line)
 	buf := bytes.NewBuffer(*bytebuf)
 	fmt.Fprintf(buf, format, args...)
 	*bytebuf = append(buf.Bytes(), '\n')
