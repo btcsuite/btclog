@@ -59,6 +59,9 @@ const (
 	// Lshortfile modifies the logger output to include filename and line number
 	// of the logging callsite, e.g. main.go:123.  Overrides Llongfile.
 	Lshortfile
+
+	// Lnotimestamp disables the timestamp.
+	Lnotimestamp
 )
 
 // Read logger flags from the LOGFLAGS environment variable.  Multiple flags can
@@ -70,6 +73,8 @@ func init() {
 			defaultFlags |= Llongfile
 		case "shortfile":
 			defaultFlags |= Lshortfile
+		case "notimestamp":
+			defaultFlags |= Lnotimestamp
 		}
 	}
 }
@@ -201,25 +206,29 @@ func itoa(buf *[]byte, i int, wid int) {
 // Appends a header in the default format 'YYYY-MM-DD hh:mm:ss.sss [LVL] TAG: '.
 // If either of the Lshortfile or Llongfile flags are specified, the file named
 // and line number are included after the tag and before the final colon.
-func formatHeader(buf *[]byte, t time.Time, lvl, tag string, file string, line int) {
-	year, month, day := t.Date()
-	hour, min, sec := t.Clock()
-	ms := t.Nanosecond() / 1e6
+func formatHeader(buf *[]byte, t *time.Time, lvl, tag string, file string, line int) {
+	if t != nil {
+		year, month, day := t.Date()
+		hour, min, sec := t.Clock()
+		ms := t.Nanosecond() / 1e6
 
-	itoa(buf, year, 4)
-	*buf = append(*buf, '-')
-	itoa(buf, int(month), 2)
-	*buf = append(*buf, '-')
-	itoa(buf, day, 2)
-	*buf = append(*buf, ' ')
-	itoa(buf, hour, 2)
-	*buf = append(*buf, ':')
-	itoa(buf, min, 2)
-	*buf = append(*buf, ':')
-	itoa(buf, sec, 2)
-	*buf = append(*buf, '.')
-	itoa(buf, ms, 3)
-	*buf = append(*buf, " ["...)
+		itoa(buf, year, 4)
+		*buf = append(*buf, '-')
+		itoa(buf, int(month), 2)
+		*buf = append(*buf, '-')
+		itoa(buf, day, 2)
+		*buf = append(*buf, ' ')
+		itoa(buf, hour, 2)
+		*buf = append(*buf, ':')
+		itoa(buf, min, 2)
+		*buf = append(*buf, ':')
+		itoa(buf, sec, 2)
+		*buf = append(*buf, '.')
+		itoa(buf, ms, 3)
+		*buf = append(*buf, ' ')
+	}
+
+	*buf = append(*buf, "["...)
 	*buf = append(*buf, lvl...)
 	*buf = append(*buf, "] "...)
 	*buf = append(*buf, tag...)
@@ -263,7 +272,11 @@ func callsite(flag uint32) (string, int) {
 // function and formatting the provided arguments using the default formatting
 // rules.
 func (b *Backend) print(lvl, tag string, args ...interface{}) {
-	t := time.Now() // get as early as possible
+	var t *time.Time
+	if b.flag&(Lnotimestamp) == 0 {
+		now := time.Now() // get as early as possible
+		t = &now
+	}
 
 	bytebuf := buffer()
 
@@ -290,7 +303,11 @@ func (b *Backend) print(lvl, tag string, args ...interface{}) {
 // function and formatting the provided arguments according to the given format
 // specifier.
 func (b *Backend) printf(lvl, tag string, format string, args ...interface{}) {
-	t := time.Now() // get as early as possible
+	var t *time.Time
+	if b.flag&(Lnotimestamp) == 0 {
+		now := time.Now() // get as early as possible
+		t = &now
+	}
 
 	bytebuf := buffer()
 
