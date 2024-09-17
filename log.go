@@ -105,34 +105,10 @@ func WithFlags(flags uint32) BackendOption {
 	}
 }
 
-// bufferPool defines a concurrent safe free list of byte slices used to provide
-// temporary buffers for formatting log messages prior to outputting them.
-var bufferPool = sync.Pool{
-	New: func() any {
-		b := make([]byte, 0, 120)
-		return &b // pointer to slice to avoid boxing alloc
-	},
-}
-
-// buffer returns a byte slice from the free list.  A new buffer is allocated if
-// there are not any available on the free list.  The returned byte slice should
-// be returned to the fee list by using the recycleBuffer function when the
-// caller is done with it.
-func buffer() *[]byte {
-	return bufferPool.Get().(*[]byte)
-}
-
-// recycleBuffer puts the provided byte slice, which should have been obtain via
-// the buffer function, back on the free list.
-func recycleBuffer(b *[]byte) {
-	*b = (*b)[:0]
-	bufferPool.Put(b)
-}
-
 // From stdlib log package.
 // Cheap integer to fixed-width decimal ASCII.  Give a negative width to avoid
 // zero-padding.
-func itoa(buf *[]byte, i int, wid int) {
+func itoa(buf *buffer, i int, wid int) {
 	// Assemble decimal in reverse order.
 	var b [20]byte
 	bp := len(b) - 1
@@ -145,30 +121,15 @@ func itoa(buf *[]byte, i int, wid int) {
 	}
 	// i < 10
 	b[bp] = byte('0' + i)
-	*buf = append(*buf, b[bp:]...)
+	buf.writeBytes(b[bp:])
 }
 
 // Appends a header in the default format 'YYYY-MM-DD hh:mm:ss.sss [LVL] TAG: '.
 // If either of the Lshortfile or Llongfile flags are specified, the file named
 // and line number are included after the tag and before the final colon.
-func formatHeader(buf *[]byte, t time.Time, lvl, tag string, file string, line int) {
-	year, month, day := t.Date()
-	hour, min, sec := t.Clock()
-	ms := t.Nanosecond() / 1e6
+func formatHeader(buf *buffer, t time.Time, lvl, tag string, file string, line int) {
+	writeTimestamp(buf, t)
 
-	itoa(buf, year, 4)
-	*buf = append(*buf, '-')
-	itoa(buf, int(month), 2)
-	*buf = append(*buf, '-')
-	itoa(buf, day, 2)
-	*buf = append(*buf, ' ')
-	itoa(buf, hour, 2)
-	*buf = append(*buf, ':')
-	itoa(buf, min, 2)
-	*buf = append(*buf, ':')
-	itoa(buf, sec, 2)
-	*buf = append(*buf, '.')
-	itoa(buf, ms, 3)
 	*buf = append(*buf, " ["...)
 	*buf = append(*buf, lvl...)
 	*buf = append(*buf, "] "...)
@@ -180,6 +141,29 @@ func formatHeader(buf *[]byte, t time.Time, lvl, tag string, file string, line i
 		itoa(buf, line, -1)
 	}
 	*buf = append(*buf, ": "...)
+}
+
+// writeTimestamp writes the date in the format 'YYYY-MM-DD hh:mm:ss.sss' to the
+// buffer.
+func writeTimestamp(buf *buffer, t time.Time) {
+	year, month, day := t.Date()
+	hour, min, sec := t.Clock()
+	ms := t.Nanosecond() / 1e6
+
+	itoa(buf, year, 4)
+	buf.writeByte('-')
+	itoa(buf, int(month), 2)
+	buf.writeByte('-')
+	itoa(buf, day, 2)
+	buf.writeByte(' ')
+	itoa(buf, hour, 2)
+	buf.writeByte(':')
+	itoa(buf, min, 2)
+	buf.writeByte(':')
+	itoa(buf, sec, 2)
+	buf.writeByte('.')
+	itoa(buf, ms, 3)
+	buf.writeByte(' ')
 }
 
 // calldepth is the call depth of the callsite function relative to the
@@ -215,7 +199,7 @@ func callsite(flag uint32) (string, int) {
 func (b *Backend) print(lvl, tag string, args ...any) {
 	t := time.Now() // get as early as possible
 
-	bytebuf := buffer()
+	bytebuf := newBuffer()
 
 	var file string
 	var line int
@@ -232,7 +216,7 @@ func (b *Backend) print(lvl, tag string, args ...any) {
 	b.w.Write(*bytebuf)
 	b.mu.Unlock()
 
-	recycleBuffer(bytebuf)
+	bytebuf.free()
 }
 
 // printf outputs a log message to the writer associated with the backend after
@@ -242,7 +226,7 @@ func (b *Backend) print(lvl, tag string, args ...any) {
 func (b *Backend) printf(lvl, tag string, format string, args ...any) {
 	t := time.Now() // get as early as possible
 
-	bytebuf := buffer()
+	bytebuf := newBuffer()
 
 	var file string
 	var line int
@@ -259,7 +243,7 @@ func (b *Backend) printf(lvl, tag string, format string, args ...any) {
 	b.w.Write(*bytebuf)
 	b.mu.Unlock()
 
-	recycleBuffer(bytebuf)
+	bytebuf.free()
 }
 
 // Logger returns a new logger for a particular subsystem that writes to the
