@@ -80,3 +80,31 @@ func (l Level) String() string {
 		return str("CRT", l-LevelCritical)
 	}
 }
+
+type ansiColorSeq string
+
+const (
+	ansiColorSeqDarkTeal  ansiColorSeq = "38;5;30"
+	ansiColorSeqDarkBlue  ansiColorSeq = "38;5;63"
+	ansiColorSeqLightBlue ansiColorSeq = "38;5;86"
+	ansiColorSeqYellow    ansiColorSeq = "38;5;192"
+	ansiColorSeqRed       ansiColorSeq = "38;5;204"
+	ansiColorSeqPink      ansiColorSeq = "38;5;134"
+)
+
+func (l Level) ansiColoSeq() ansiColorSeq {
+	switch l {
+	case LevelTrace:
+		return ansiColorSeqDarkTeal
+	case LevelDebug:
+		return ansiColorSeqDarkBlue
+	case LevelWarn:
+		return ansiColorSeqYellow
+	case LevelError:
+		return ansiColorSeqRed
+	case LevelCritical:
+		return ansiColorSeqPink
+	default:
+		return ansiColorSeqLightBlue
+	}
+}
