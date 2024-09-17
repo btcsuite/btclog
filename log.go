@@ -174,8 +174,8 @@ const calldepth = 3
 
 // callsite returns the file name and line number of the callsite to the
 // subsystem logger.
-func callsite(flag uint32) (string, int) {
-	_, file, line, ok := runtime.Caller(calldepth)
+func callsite(flag uint32, skipDepth int) (string, int) {
+	_, file, line, ok := runtime.Caller(skipDepth)
 	if !ok {
 		return "???", 0
 	}
@@ -204,7 +204,7 @@ func (b *Backend) print(lvl, tag string, args ...any) {
 	var file string
 	var line int
 	if b.flag&(Lshortfile|Llongfile) != 0 {
-		file, line = callsite(b.flag)
+		file, line = callsite(b.flag, calldepth)
 	}
 
 	formatHeader(bytebuf, t, lvl, tag, file, line)
@@ -231,7 +231,7 @@ func (b *Backend) printf(lvl, tag string, format string, args ...any) {
 	var file string
 	var line int
 	if b.flag&(Lshortfile|Llongfile) != 0 {
-		file, line = callsite(b.flag)
+		file, line = callsite(b.flag, calldepth)
 	}
 
 	formatHeader(bytebuf, t, lvl, tag, file, line)
