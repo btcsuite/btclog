@@ -1,6 +1,9 @@
 package btclog
 
-import "github.com/btcsuite/btclog"
+import (
+	"context"
+	"github.com/btcsuite/btclog"
+)
 
 // Logger is an interface which describes a level-based logger. A default
 // implementation of Logger is implemented by this package and can be created
@@ -59,6 +62,30 @@ type Logger interface {
 	// Critical formats a message using the default formats for its operands
 	// and writes to log with LevelCritical.
 	Critical(v ...any)
+
+	// TraceS writes a structured log with the given message and key-value
+	// pair attributes with LevelTrace to the log.
+	TraceS(ctx context.Context, msg string, attrs ...any)
+
+	// DebugS writes a structured log with the given message and key-value
+	// pair attributes with LevelDebug to the log.
+	DebugS(ctx context.Context, msg string, attrs ...any)
+
+	// InfoS writes a structured log with the given message and key-value
+	// pair attributes with LevelInfo to the log.
+	InfoS(ctx context.Context, msg string, attrs ...any)
+
+	// WarnS writes a structured log with the given message and key-value
+	// pair attributes with LevelWarn to the log.
+	WarnS(ctx context.Context, msg string, err error, attrs ...any)
+
+	// ErrorS writes a structured log with the given message and key-value
+	// pair attributes with LevelError to the log.
+	ErrorS(ctx context.Context, msg string, err error, attrs ...any)
+
+	// CriticalS writes a structured log with the given message and
+	// key-value pair attributes with LevelCritical to the log.
+	CriticalS(ctx context.Context, msg string, err error, attrs ...any)
 
 	// Level returns the current logging level.
 	Level() btclog.Level
