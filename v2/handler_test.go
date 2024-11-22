@@ -26,7 +26,7 @@ func TestDefaultHandler(t *testing.T) {
 					"got %s", test.level, handler.Level())
 			}
 
-			test.logFunc(NewSLogger(handler))
+			test.logFunc(t, NewSLogger(handler))
 
 			if buf.String() != test.expectedLog {
 				t.Fatalf("Log result mismatch. Expected "+
@@ -46,7 +46,7 @@ var tests = []struct {
 	name               string
 	handlerConstructor func(w io.Writer) Handler
 	level              btclog.Level
-	logFunc            func(log Logger)
+	logFunc            func(t *testing.T, log Logger)
 	expectedLog        string
 }{
 	{
@@ -57,7 +57,7 @@ var tests = []struct {
 			)
 		},
 		level: LevelDebug,
-		logFunc: func(log Logger) {
+		logFunc: func(t *testing.T, log Logger) {
 			log.Info("Test Basic Log")
 			log.Debugf("Test basic log with %s", "format")
 			log.Trace("Log should not appear due to level")
@@ -76,7 +76,7 @@ var tests = []struct {
 			)
 		},
 		level: LevelInfo,
-		logFunc: func(log Logger) {
+		logFunc: func(t *testing.T, log Logger) {
 			log.Info("Test Basic Log")
 		},
 		expectedLog: `[INF] handler_test.go:29: Test Basic Log
@@ -89,7 +89,7 @@ var tests = []struct {
 			return h.SubSystem("SUBS")
 		},
 		level: LevelInfo,
-		logFunc: func(log Logger) {
+		logFunc: func(t *testing.T, log Logger) {
 			log.Info("Test Basic Log")
 		},
 		expectedLog: `[INF] SUBS: Test Basic Log
@@ -101,7 +101,7 @@ var tests = []struct {
 			return NewDefaultHandler(w, WithNoTimestamp())
 		},
 		level: LevelTrace,
-		logFunc: func(log Logger) {
+		logFunc: func(t *testing.T, log Logger) {
 			log.Trace("Trace")
 			log.Debug("Debug")
 			log.Info("Info")
@@ -123,7 +123,7 @@ var tests = []struct {
 			return NewDefaultHandler(w, WithNoTimestamp())
 		},
 		level: LevelInfo,
-		logFunc: func(log Logger) {
+		logFunc: func(t *testing.T, log Logger) {
 			ctx := context.Background()
 			log.InfoS(ctx, "No attributes")
 			log.InfoS(ctx, "Single word attribute", "key", "value")
@@ -162,7 +162,7 @@ var tests = []struct {
 			return NewDefaultHandler(w, WithNoTimestamp())
 		},
 		level: LevelInfo,
-		logFunc: func(log Logger) {
+		logFunc: func(t *testing.T, log Logger) {
 			log.Error("Error string")
 			log.Errorf("Error formatted string")
 
@@ -210,7 +210,7 @@ var tests = []struct {
 			return NewDefaultHandler(w, WithNoTimestamp())
 		},
 		level: LevelInfo,
-		logFunc: func(log Logger) {
+		logFunc: func(t *testing.T, log Logger) {
 			ctx := context.Background()
 			log.InfoS(ctx, "msg", Hex("hex_val", []byte{
 				0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
@@ -221,10 +221,32 @@ var tests = []struct {
 			log.InfoS(ctx, "msg", Hex6("hex_val", []byte{
 				0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
 			}))
+
+			log.InfoS(ctx, "msg", "key", Sprintf("%.12f", 3.241))
+			log.InfoS(ctx, "msg", Fmt("key", "%.12f", 3.241))
+
+			// Create a closure that will fail the test if it is
+			// executed. We log it with the Debug level so that it
+			// is not executed.
+			shouldNotRun := ClosureAttr("key", func() string {
+				t.Fatalf("Should not compute")
+				return "value"
+			})
+			log.DebugS(ctx, "msg", shouldNotRun)
+
+			// Create a closure that should be executed since it is
+			// logged with the Info level.
+			shouldRun := ClosureAttr("key", func() string {
+				return "lazy compute"
+			})
+			log.InfoS(ctx, "msg", shouldRun)
 		},
 		expectedLog: `[INF]: msg hex_val=0102030405060708
 [INF]: msg hex_val=0102
 [INF]: msg hex_val=010203040506
+[INF]: msg key=3.241000000000
+[INF]: msg key=3.241000000000
+[INF]: msg key="lazy compute"
 `,
 	},
 }
