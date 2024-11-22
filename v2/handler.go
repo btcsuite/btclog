@@ -55,15 +55,6 @@ func defaultHandlerOpts() *handlerOpts {
 		flag:              defaultFlags,
 		withTimestamp:     true,
 		callSiteSkipDepth: 6,
-		styledLevel: func(level btclog.Level) string {
-			return fmt.Sprintf("[%s]", level)
-		},
-		styledCallSite: func(file string, line int) string {
-			return fmt.Sprintf("%s:%d", file, line)
-		},
-		styledKey: func(s string) string {
-			return s
-		},
 	}
 }
 
@@ -216,7 +207,8 @@ func (d *DefaultHandler) Handle(_ context.Context, r slog.Record) error {
 	}
 
 	// Finish off the header.
-	buf.writeString(": ")
+	buf.writeByte(':')
+	buf.writeByte(' ')
 
 	// Write the log message itself.
 	if r.Message != "" {
@@ -309,7 +301,16 @@ func (d *DefaultHandler) appendAttr(buf *buffer, a slog.Attr) {
 
 // writeLevel writes the given slog.Level to the buffer in its string form.
 func (d *DefaultHandler) writeLevel(buf *buffer, level slog.Level) {
-	buf.writeString(d.opts.styledLevel(fromSlogLevel(level)))
+	lvl := fromSlogLevel(level)
+	if d.opts.styledLevel != nil {
+		buf.writeString(d.opts.styledLevel(fromSlogLevel(level)))
+
+		return
+	}
+
+	buf.writeByte('[')
+	buf.writeString(lvl.String())
+	buf.writeByte(']')
 }
 
 // writeCallSite writes the given file path and line number to the buffer as a
@@ -318,9 +319,17 @@ func (d *DefaultHandler) writeCallSite(buf *buffer, file string, line int) {
 	if file == "" {
 		return
 	}
-	buf.writeString(" ")
+	buf.writeByte(' ')
 
-	buf.writeString(d.opts.styledCallSite(file, line))
+	if d.opts.styledCallSite != nil {
+		buf.writeString(d.opts.styledCallSite(file, line))
+
+		return
+	}
+
+	*buf = append(*buf, file...)
+	buf.writeByte(':')
+	itoa(buf, line, -1)
 }
 
 // appendString writes the given string to the buffer. It may wrap the string in
@@ -336,13 +345,19 @@ func appendString(buf *buffer, str string) {
 // appendKey writes the given key string to the buffer along with an `=`
 // character. This is generally useful before calling appendValue.
 func (d *DefaultHandler) appendKey(buf *buffer, key string) {
-	buf.writeString(" ")
+	buf.writeByte(' ')
 	if needsQuoting(key) {
 		key = strconv.Quote(key)
 	}
 	key += "="
 
-	buf.writeString(d.opts.styledKey(key))
+	if d.opts.styledKey != nil {
+		buf.writeString(d.opts.styledKey(key))
+
+		return
+	}
+
+	buf.writeString(key)
 }
 
 // appendValue writes the given slog.Value to the buffer.

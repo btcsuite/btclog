@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 	"time"
@@ -79,7 +80,7 @@ var tests = []struct {
 		logFunc: func(t *testing.T, log Logger) {
 			log.Info("Test Basic Log")
 		},
-		expectedLog: `[INF] handler_test.go:29: Test Basic Log
+		expectedLog: `[INF] handler_test.go:30: Test Basic Log
 `,
 	},
 	{
@@ -247,6 +248,48 @@ var tests = []struct {
 [INF]: msg key=3.241000000000
 [INF]: msg key=3.241000000000
 [INF]: msg key="lazy compute"
+`,
+	},
+	{
+		name: "Styled Outputs",
+		handlerConstructor: func(w io.Writer) Handler {
+			return NewDefaultHandler(
+				w, WithNoTimestamp(),
+				WithCallSiteSkipDepth(7),
+				WithCallerFlags(Lshortfile),
+				WithStyledKeys(func(s string) string {
+					return s
+				}),
+				WithStyledCallSite(
+					func(f string, l int) string {
+						return fmt.Sprintf(
+							"%s:%d", f, l,
+						)
+					},
+				),
+				WithStyledLevel(
+					func(l btclog.Level) string {
+						return fmt.Sprintf(
+							"[%s]", l,
+						)
+					},
+				),
+			)
+		},
+		level: LevelInfo,
+		logFunc: func(t *testing.T, log Logger) {
+			ctx := context.Background()
+			log.InfoS(ctx, "No attributes")
+			log.InfoS(ctx, "Single word attribute", "key", "value")
+			log.InfoS(ctx, "Multi word string value", "key with spaces", "value")
+			log.InfoS(ctx, "Number attribute", "key", 5)
+			log.InfoS(ctx, "Bad key", "key")
+		},
+		expectedLog: `[INF] handler_test.go:30: No attributes
+[INF] handler_test.go:30: Single word attribute key=value
+[INF] handler_test.go:30: Multi word string value "key with spaces"=value
+[INF] handler_test.go:30: Number attribute key=5
+[INF] handler_test.go:30: Bad key !BADKEY=key
 `,
 	},
 }
