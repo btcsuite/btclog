@@ -308,6 +308,13 @@ func (l *sLogger) SetLevel(level btclog.Level) {
 	l.handler.SetLevel(level)
 }
 
+// SubSystem returns a copy of the logger but with the new subsystem tag.
+//
+// This is part of the Logger interface implementation.
+func (l *sLogger) SubSystem(tag string) Logger {
+	return NewSLogger(l.handler.SubSystem(tag))
+}
+
 var _ Logger = (*sLogger)(nil)
 
 func init() {

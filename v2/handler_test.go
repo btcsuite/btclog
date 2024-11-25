@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"testing"
 	"time"
 
@@ -19,7 +18,7 @@ func TestDefaultHandler(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			handler := test.handlerConstructor(&buf)
+			handler := NewDefaultHandler(&buf, test.handlerOpts...)
 			logger := NewSLogger(handler)
 			logger.SetLevel(test.level)
 
@@ -45,20 +44,16 @@ var timeSource = func() time.Time {
 }
 
 var tests = []struct {
-	name               string
-	handlerConstructor func(w io.Writer) Handler
-	level              btclog.Level
-	logFunc            func(t *testing.T, log Logger)
-	expectedLog        string
+	name        string
+	handlerOpts []HandlerOption
+	level       btclog.Level
+	logFunc     func(t *testing.T, log Logger)
+	expectedLog string
 }{
 	{
-		name: "Basic calls and levels",
-		handlerConstructor: func(w io.Writer) Handler {
-			return NewDefaultHandler(
-				w, WithTimeSource(timeSource),
-			)
-		},
-		level: LevelDebug,
+		name:        "Basic calls and levels",
+		handlerOpts: []HandlerOption{WithTimeSource(timeSource)},
+		level:       LevelDebug,
 		logFunc: func(t *testing.T, log Logger) {
 			log.Info("Test Basic Log")
 			log.Debugf("Test basic log with %s", "format")
@@ -70,39 +65,33 @@ var tests = []struct {
 	},
 	{
 		name: "Call site",
-		handlerConstructor: func(w io.Writer) Handler {
-			return NewDefaultHandler(
-				w, WithNoTimestamp(),
-				WithCallSiteSkipDepth(6),
-				WithCallerFlags(Lshortfile),
-			)
+		handlerOpts: []HandlerOption{
+			WithNoTimestamp(),
+			WithCallSiteSkipDepth(6),
+			WithCallerFlags(Lshortfile),
 		},
 		level: LevelInfo,
 		logFunc: func(t *testing.T, log Logger) {
 			log.Info("Test Basic Log")
 		},
-		expectedLog: `[INF] handler_test.go:31: Test Basic Log
+		expectedLog: `[INF] handler_test.go:30: Test Basic Log
 `,
 	},
 	{
-		name: "Sub-system tag",
-		handlerConstructor: func(w io.Writer) Handler {
-			h := NewDefaultHandler(w, WithNoTimestamp())
-			return h.SubSystem("SUBS")
-		},
-		level: LevelInfo,
+		name:        "Sub-system tag",
+		handlerOpts: []HandlerOption{WithNoTimestamp()},
+		level:       LevelTrace,
 		logFunc: func(t *testing.T, log Logger) {
-			log.Info("Test Basic Log")
+			subLog := log.SubSystem("SUBS")
+			subLog.Trace("Test Basic Log")
 		},
-		expectedLog: `[INF] SUBS: Test Basic Log
+		expectedLog: `[TRC] SUBS: Test Basic Log
 `,
 	},
 	{
-		name: "Test all levels",
-		handlerConstructor: func(w io.Writer) Handler {
-			return NewDefaultHandler(w, WithNoTimestamp())
-		},
-		level: LevelTrace,
+		name:        "Test all levels",
+		handlerOpts: []HandlerOption{WithNoTimestamp()},
+		level:       LevelTrace,
 		logFunc: func(t *testing.T, log Logger) {
 			log.Trace("Trace")
 			log.Debug("Debug")
@@ -120,11 +109,9 @@ var tests = []struct {
 `,
 	},
 	{
-		name: "Structured Logs",
-		handlerConstructor: func(w io.Writer) Handler {
-			return NewDefaultHandler(w, WithNoTimestamp())
-		},
-		level: LevelInfo,
+		name:        "Structured Logs",
+		handlerOpts: []HandlerOption{WithNoTimestamp()},
+		level:       LevelInfo,
 		logFunc: func(t *testing.T, log Logger) {
 			ctx := context.Background()
 			log.InfoS(ctx, "No attributes")
@@ -159,11 +146,9 @@ var tests = []struct {
 `,
 	},
 	{
-		name: "Error logs",
-		handlerConstructor: func(w io.Writer) Handler {
-			return NewDefaultHandler(w, WithNoTimestamp())
-		},
-		level: LevelInfo,
+		name:        "Error logs",
+		handlerOpts: []HandlerOption{WithNoTimestamp()},
+		level:       LevelInfo,
 		logFunc: func(t *testing.T, log Logger) {
 			log.Error("Error string")
 			log.Errorf("Error formatted string")
@@ -207,11 +192,9 @@ var tests = []struct {
 `,
 	},
 	{
-		name: "Slog Helpers",
-		handlerConstructor: func(w io.Writer) Handler {
-			return NewDefaultHandler(w, WithNoTimestamp())
-		},
-		level: LevelInfo,
+		name:        "Slog Helpers",
+		handlerOpts: []HandlerOption{WithNoTimestamp()},
+		level:       LevelInfo,
 		logFunc: func(t *testing.T, log Logger) {
 			ctx := context.Background()
 			log.InfoS(ctx, "msg", Hex("hex_val", []byte{
@@ -253,29 +236,27 @@ var tests = []struct {
 	},
 	{
 		name: "Styled Outputs",
-		handlerConstructor: func(w io.Writer) Handler {
-			return NewDefaultHandler(
-				w, WithNoTimestamp(),
-				WithCallSiteSkipDepth(6),
-				WithCallerFlags(Lshortfile),
-				WithStyledKeys(func(s string) string {
-					return s
-				}),
-				WithStyledCallSite(
-					func(f string, l int) string {
-						return fmt.Sprintf(
-							"%s:%d", f, l,
-						)
-					},
-				),
-				WithStyledLevel(
-					func(l btclog.Level) string {
-						return fmt.Sprintf(
-							"[%s]", l,
-						)
-					},
-				),
-			)
+		handlerOpts: []HandlerOption{
+			WithNoTimestamp(),
+			WithCallSiteSkipDepth(6),
+			WithCallerFlags(Lshortfile),
+			WithStyledKeys(func(s string) string {
+				return s
+			}),
+			WithStyledCallSite(
+				func(f string, l int) string {
+					return fmt.Sprintf(
+						"%s:%d", f, l,
+					)
+				},
+			),
+			WithStyledLevel(
+				func(l btclog.Level) string {
+					return fmt.Sprintf(
+						"[%s]", l,
+					)
+				},
+			),
 		},
 		level: LevelInfo,
 		logFunc: func(t *testing.T, log Logger) {
@@ -286,11 +267,11 @@ var tests = []struct {
 			log.InfoS(ctx, "Number attribute", "key", 5)
 			log.InfoS(ctx, "Bad key", "key")
 		},
-		expectedLog: `[INF] handler_test.go:31: No attributes
-[INF] handler_test.go:31: Single word attribute key=value
-[INF] handler_test.go:31: Multi word string value "key with spaces"=value
-[INF] handler_test.go:31: Number attribute key=5
-[INF] handler_test.go:31: Bad key !BADKEY=key
+		expectedLog: `[INF] handler_test.go:30: No attributes
+[INF] handler_test.go:30: Single word attribute key=value
+[INF] handler_test.go:30: Multi word string value "key with spaces"=value
+[INF] handler_test.go:30: Number attribute key=5
+[INF] handler_test.go:30: Bad key !BADKEY=key
 `,
 	},
 }

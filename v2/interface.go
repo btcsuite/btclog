@@ -92,6 +92,10 @@ type Logger interface {
 
 	// SetLevel changes the logging level to the passed level.
 	SetLevel(level btclog.Level)
+
+	// SubSystem returns a copy of the logger but with the new subsystem
+	// tag.
+	SubSystem(tag string) Logger
 }
 
 // Ensure that the Logger implements the btclog.Logger interface so that an
