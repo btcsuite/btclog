@@ -13,6 +13,11 @@ import (
 	"github.com/btcsuite/btclog"
 )
 
+// DefaultSkipDepth is the default number of stack frames to ascend when
+// determining the call site of a log. Users of this package may want to alter
+// this depth depending on if they wrap the logger at all.
+const DefaultSkipDepth = 5
+
 // HandlerOption is the signature of a functional option that can be used to
 // modify the behaviour of the DefaultHandler.
 type HandlerOption func(*handlerOpts)
@@ -54,7 +59,7 @@ func defaultHandlerOpts() *handlerOpts {
 	return &handlerOpts{
 		flag:              defaultFlags,
 		withTimestamp:     true,
-		callSiteSkipDepth: 5,
+		callSiteSkipDepth: DefaultSkipDepth,
 	}
 }
 
