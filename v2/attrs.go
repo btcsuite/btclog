@@ -6,11 +6,19 @@ import (
 	"log/slog"
 )
 
-// Hex is a convenience function for a hex-encoded log attributes.
+// Hex is a convenience function for hex-encoded log attributes.
 func Hex(key string, value []byte) slog.Attr {
-	h := hex.EncodeToString(value)
+	return slog.String(key, hex.EncodeToString(value))
+}
 
-	return slog.String(key, h)
+// Hex6 is a convenience function for hex-encoded log attributes which prints
+// a maximum of 6 bytes.
+func Hex6(key string, value []byte) slog.Attr {
+	if len(value) <= 6 {
+		return slog.String(key, hex.EncodeToString(value))
+	}
+
+	return slog.String(key, hex.EncodeToString(value[:6]))
 }
 
 type attrsKey struct{}

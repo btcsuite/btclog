@@ -204,4 +204,27 @@ var tests = []struct {
 [CRT]: Structured critical with attributes err="oh no" key=value
 `,
 	},
+	{
+		name: "Slog Helpers",
+		handlerConstructor: func(w io.Writer) Handler {
+			return NewDefaultHandler(w, WithNoTimestamp())
+		},
+		level: LevelInfo,
+		logFunc: func(log Logger) {
+			ctx := context.Background()
+			log.InfoS(ctx, "msg", Hex("hex_val", []byte{
+				0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+			}))
+			log.InfoS(ctx, "msg", Hex6("hex_val", []byte{
+				0x01, 0x02,
+			}))
+			log.InfoS(ctx, "msg", Hex6("hex_val", []byte{
+				0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+			}))
+		},
+		expectedLog: `[INF]: msg hex_val=0102030405060708
+[INF]: msg hex_val=0102
+[INF]: msg hex_val=010203040506
+`,
+	},
 }
