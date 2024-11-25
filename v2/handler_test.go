@@ -20,14 +20,15 @@ func TestDefaultHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			handler := test.handlerConstructor(&buf)
-			handler.SetLevel(test.level)
+			logger := NewSLogger(handler)
+			logger.SetLevel(test.level)
 
 			if handler.Level() != test.level {
 				t.Fatalf("Incorrect level. Expected %s, "+
 					"got %s", test.level, handler.Level())
 			}
 
-			test.logFunc(t, NewSLogger(handler))
+			test.logFunc(t, logger)
 
 			if buf.String() != test.expectedLog {
 				t.Fatalf("Log result mismatch. Expected "+
@@ -80,7 +81,7 @@ var tests = []struct {
 		logFunc: func(t *testing.T, log Logger) {
 			log.Info("Test Basic Log")
 		},
-		expectedLog: `[INF] handler_test.go:30: Test Basic Log
+		expectedLog: `[INF] handler_test.go:31: Test Basic Log
 `,
 	},
 	{
@@ -285,11 +286,11 @@ var tests = []struct {
 			log.InfoS(ctx, "Number attribute", "key", 5)
 			log.InfoS(ctx, "Bad key", "key")
 		},
-		expectedLog: `[INF] handler_test.go:30: No attributes
-[INF] handler_test.go:30: Single word attribute key=value
-[INF] handler_test.go:30: Multi word string value "key with spaces"=value
-[INF] handler_test.go:30: Number attribute key=5
-[INF] handler_test.go:30: Bad key !BADKEY=key
+		expectedLog: `[INF] handler_test.go:31: No attributes
+[INF] handler_test.go:31: Single word attribute key=value
+[INF] handler_test.go:31: Multi word string value "key with spaces"=value
+[INF] handler_test.go:31: Number attribute key=5
+[INF] handler_test.go:31: Bad key !BADKEY=key
 `,
 	},
 }
