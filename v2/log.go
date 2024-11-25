@@ -27,6 +27,11 @@ type Handler interface {
 
 	// SubSystem returns a copy of the given handler but with the new tag.
 	SubSystem(tag string) Handler
+
+	// WithPrefix returns a copy of the Handler but with the given string
+	// prefixed to each log message. Note that the subsystem of the original
+	// logger is kept but any existing prefix is overridden.
+	WithPrefix(prefix string) Handler
 }
 
 // sLogger is an implementation of Logger backed by a structured sLogger.
@@ -313,6 +318,15 @@ func (l *sLogger) SetLevel(level btclog.Level) {
 // This is part of the Logger interface implementation.
 func (l *sLogger) SubSystem(tag string) Logger {
 	return NewSLogger(l.handler.SubSystem(tag))
+}
+
+// WithPrefix returns a copy of the logger but with the given string prefixed to
+// each log message. Note that the subsystem of the original logger is kept but
+// any existing prefix is overridden.
+//
+// This is part of the Logger interface implementation.
+func (l *sLogger) WithPrefix(prefix string) Logger {
+	return NewSLogger(l.handler.WithPrefix(prefix))
 }
 
 var _ Logger = (*sLogger)(nil)

@@ -40,7 +40,6 @@ func TestDefaultHandler(t *testing.T) {
 
 var timeSource = func() time.Time {
 	return time.Date(2009, time.January, 3, 12, 0, 0, 0, time.UTC)
-
 }
 
 var tests = []struct {
@@ -86,6 +85,27 @@ var tests = []struct {
 			subLog.Trace("Test Basic Log")
 		},
 		expectedLog: `[TRC] SUBS: Test Basic Log
+`,
+	},
+	{
+		name:        "Prefixed logging",
+		handlerOpts: []HandlerOption{WithNoTimestamp()},
+		level:       LevelTrace,
+		logFunc: func(t *testing.T, log Logger) {
+			// We use trace level to ensure that logger level is
+			// carried over to the new prefixed logger.
+			log.Tracef("Test Basic Log")
+
+			subLog := log.SubSystem("SUBS")
+			subLog.Tracef("Test Basic Log")
+
+			pLog := subLog.WithPrefix("(Client)")
+			pLog.Tracef("Test Basic Log")
+
+		},
+		expectedLog: `[TRC]: Test Basic Log
+[TRC] SUBS: Test Basic Log
+[TRC] SUBS: (Client) Test Basic Log
 `,
 	},
 	{

@@ -118,6 +118,7 @@ type DefaultHandler struct {
 
 	level           int64
 	tag             string
+	prefix          string
 	fields          []slog.Attr
 	callstackOffset bool
 
@@ -210,6 +211,15 @@ func (d *DefaultHandler) Handle(_ context.Context, r slog.Record) error {
 	buf.writeByte(':')
 	buf.writeByte(' ')
 
+	// Maybe write a prefix if one has been specified.
+	if d.prefix != "" {
+		buf.writeString(d.prefix)
+
+		if r.Message != "" {
+			buf.writeByte(' ')
+		}
+	}
+
 	// Write the log message itself.
 	if r.Message != "" {
 		buf.writeString(r.Message)
@@ -238,7 +248,7 @@ func (d *DefaultHandler) Handle(_ context.Context, r slog.Record) error {
 //
 // NOTE: this is part of the slog.Handler interface.
 func (d *DefaultHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return d.with(d.tag, true, attrs...)
+	return d.with(d.tag, d.prefix, true, attrs...)
 }
 
 // WithGroup returns a new Handler with the given group appended to
@@ -250,22 +260,31 @@ func (d *DefaultHandler) WithGroup(name string) slog.Handler {
 	if d.tag != "" {
 		name = d.tag + "." + name
 	}
-	return d.with(name, true)
+	return d.with(name, d.prefix, true)
 }
 
 // SubSystem returns a copy of the given handler but with the new tag. All
 // attributes added with WithAttrs will be kept but all groups added with
 // WithGroup are lost.
 //
-// NOTE: this is part of the Handler interface.
+// note: this is part of the handler interface.
 func (d *DefaultHandler) SubSystem(tag string) Handler {
-	return d.with(tag, false)
+	return d.with(tag, d.prefix, false)
+}
+
+// WithPrefix returns a copy of the Handler but with the given string prefixed
+// to each log message. Note that the subsystem of the original logger is kept
+// but any existing prefix is overridden.
+//
+// note: this is part of the handler interface.
+func (d *DefaultHandler) WithPrefix(prefix string) Handler {
+	return d.with(d.tag, prefix, false)
 }
 
 // with returns a new logger with the given attributes added.
 // withCallstackOffset should be false if the caller returns a concrete
 // DefaultHandler and true if the caller returns the Handler interface.
-func (d *DefaultHandler) with(tag string, withCallstackOffset bool,
+func (d *DefaultHandler) with(tag, prefix string, withCallstackOffset bool,
 	attrs ...slog.Attr) *DefaultHandler {
 
 	d.mu.Lock()
@@ -280,6 +299,7 @@ func (d *DefaultHandler) with(tag string, withCallstackOffset bool,
 	sl.fields = append(sl.fields, attrs...)
 	sl.callstackOffset = withCallstackOffset
 	sl.tag = tag
+	sl.prefix = prefix
 
 	return &sl
 }

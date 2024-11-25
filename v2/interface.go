@@ -2,6 +2,7 @@ package btclog
 
 import (
 	"context"
+
 	"github.com/btcsuite/btclog"
 )
 
@@ -96,6 +97,11 @@ type Logger interface {
 	// SubSystem returns a copy of the logger but with the new subsystem
 	// tag.
 	SubSystem(tag string) Logger
+
+	// WithPrefix returns a copy of the logger but with the given string
+	// prefixed to each log message. Note that the subsystem of the original
+	// logger is kept but any existing prefix is overridden.
+	WithPrefix(prefix string) Logger
 }
 
 // Ensure that the Logger implements the btclog.Logger interface so that an
