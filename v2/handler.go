@@ -54,7 +54,7 @@ func defaultHandlerOpts() *handlerOpts {
 	return &handlerOpts{
 		flag:              defaultFlags,
 		withTimestamp:     true,
-		callSiteSkipDepth: 6,
+		callSiteSkipDepth: 5,
 	}
 }
 
