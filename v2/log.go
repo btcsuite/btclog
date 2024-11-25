@@ -3,9 +3,10 @@ package btclog
 import (
 	"context"
 	"fmt"
-	"github.com/btcsuite/btclog"
 	"io"
 	"log/slog"
+
+	"github.com/btcsuite/btclog"
 )
 
 // Disabled is a Logger that will never output anything.
@@ -31,13 +32,24 @@ type Handler interface {
 type sLogger struct {
 	Handler
 	logger *slog.Logger
+
+	// unusedCtx is a context that will be passed to the non-structured
+	// logging calls for backwards compatibility with the old v1 Logger
+	// interface. Transporting a context in a struct is an anti-pattern but
+	// this is purely used for backwards compatibility and to prevent
+	// needing to create a fresh context for each call to the old interface
+	// methods. This is ok to do since the slog package does not use this
+	// context for cancellation or deadlines. It purely uses it to extract
+	// any slog attributes that have been added as values to the context.
+	unusedCtx context.Context
 }
 
 // NewSLogger constructs a new structured logger from the given Handler.
 func NewSLogger(handler Handler) Logger {
 	return &sLogger{
-		Handler: handler,
-		logger:  slog.New(handler),
+		Handler:   handler,
+		logger:    slog.New(handler),
+		unusedCtx: context.Background(),
 	}
 }
 
@@ -206,15 +218,14 @@ func (l *sLogger) CriticalS(ctx context.Context, msg string, err error,
 // contains a format string and parameters for the string into the appropriate
 // form expected by the structured logger.
 func (l *sLogger) toSlogf(level slog.Level, format string, params ...any) {
-	l.logger.Log(context.Background(), level,
-		fmt.Sprintf(format, params...))
+	l.logger.Log(l.unusedCtx, level, fmt.Sprintf(format, params...))
 }
 
 // toSlog is a helper method that converts an unstructured log call that
 // contains a number of parameters into the appropriate form expected by the
 // structured logger.
 func (l *sLogger) toSlog(level slog.Level, v ...any) {
-	l.logger.Log(context.Background(), level, fmt.Sprint(v...))
+	l.logger.Log(l.unusedCtx, level, fmt.Sprint(v...))
 }
 
 // toSlogS is a helper method that can be used by all the structured log calls

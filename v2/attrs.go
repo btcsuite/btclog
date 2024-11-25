@@ -51,9 +51,9 @@ type attrsKey struct{}
 //
 // Usage:
 //
-//	ctx := log.WithCtx(ctx, "height", 1234)
+//	unusedCtx := log.WithCtx(unusedCtx, "height", 1234)
 //	...
-//	log.Info(ctx, "Height processed") // Will contain attribute: height=1234
+//	log.Info(unusedCtx, "Height processed") // Will contain attribute: height=1234
 func WithCtx(ctx context.Context, attrs ...any) context.Context {
 	return context.WithValue(ctx, attrsKey{}, mergeAttrs(ctx, attrs))
 }
