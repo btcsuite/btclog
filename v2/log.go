@@ -218,6 +218,10 @@ func (l *sLogger) CriticalS(ctx context.Context, msg string, err error,
 // contains a format string and parameters for the string into the appropriate
 // form expected by the structured logger.
 func (l *sLogger) toSlogf(level slog.Level, format string, params ...any) {
+	if !l.Enabled(l.unusedCtx, level) {
+		return
+	}
+
 	l.logger.Log(l.unusedCtx, level, fmt.Sprintf(format, params...))
 }
 
@@ -225,6 +229,10 @@ func (l *sLogger) toSlogf(level slog.Level, format string, params ...any) {
 // contains a number of parameters into the appropriate form expected by the
 // structured logger.
 func (l *sLogger) toSlog(level slog.Level, v ...any) {
+	if !l.Enabled(l.unusedCtx, level) {
+		return
+	}
+
 	l.logger.Log(l.unusedCtx, level, fmt.Sprint(v...))
 }
 
@@ -232,6 +240,10 @@ func (l *sLogger) toSlog(level slog.Level, v ...any) {
 // to access the underlying logger.
 func (l *sLogger) toSlogS(ctx context.Context, level slog.Level, msg string,
 	attrs ...any) {
+
+	if !l.Enabled(ctx, level) {
+		return
+	}
 
 	l.logger.Log(ctx, level, msg, mergeAttrs(ctx, attrs)...)
 }
