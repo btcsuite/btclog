@@ -13,6 +13,11 @@ import (
 	"github.com/btcsuite/btclog"
 )
 
+// DefaultSkipDepth is the default number of stack frames to ascend when
+// determining the call site of a log. Users of this package may want to alter
+// this depth depending on if they wrap the logger at all.
+const DefaultSkipDepth = 5
+
 // HandlerOption is the signature of a functional option that can be used to
 // modify the behaviour of the DefaultHandler.
 type HandlerOption func(*handlerOpts)
@@ -54,16 +59,7 @@ func defaultHandlerOpts() *handlerOpts {
 	return &handlerOpts{
 		flag:              defaultFlags,
 		withTimestamp:     true,
-		callSiteSkipDepth: 6,
-		styledLevel: func(level btclog.Level) string {
-			return fmt.Sprintf("[%s]", level)
-		},
-		styledCallSite: func(file string, line int) string {
-			return fmt.Sprintf("%s:%d", file, line)
-		},
-		styledKey: func(s string) string {
-			return s
-		},
+		callSiteSkipDepth: DefaultSkipDepth,
 	}
 }
 
@@ -127,6 +123,7 @@ type DefaultHandler struct {
 
 	level           int64
 	tag             string
+	prefix          string
 	fields          []slog.Attr
 	callstackOffset bool
 
@@ -216,7 +213,17 @@ func (d *DefaultHandler) Handle(_ context.Context, r slog.Record) error {
 	}
 
 	// Finish off the header.
-	buf.writeString(": ")
+	buf.writeByte(':')
+	buf.writeByte(' ')
+
+	// Maybe write a prefix if one has been specified.
+	if d.prefix != "" {
+		buf.writeString(d.prefix)
+
+		if r.Message != "" {
+			buf.writeByte(' ')
+		}
+	}
 
 	// Write the log message itself.
 	if r.Message != "" {
@@ -246,7 +253,7 @@ func (d *DefaultHandler) Handle(_ context.Context, r slog.Record) error {
 //
 // NOTE: this is part of the slog.Handler interface.
 func (d *DefaultHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return d.with(d.tag, true, attrs...)
+	return d.with(d.tag, d.prefix, true, attrs...)
 }
 
 // WithGroup returns a new Handler with the given group appended to
@@ -258,22 +265,31 @@ func (d *DefaultHandler) WithGroup(name string) slog.Handler {
 	if d.tag != "" {
 		name = d.tag + "." + name
 	}
-	return d.with(name, true)
+	return d.with(name, d.prefix, true)
 }
 
 // SubSystem returns a copy of the given handler but with the new tag. All
 // attributes added with WithAttrs will be kept but all groups added with
 // WithGroup are lost.
 //
-// NOTE: this is part of the Handler interface.
+// note: this is part of the handler interface.
 func (d *DefaultHandler) SubSystem(tag string) Handler {
-	return d.with(tag, false)
+	return d.with(tag, d.prefix, false)
+}
+
+// WithPrefix returns a copy of the Handler but with the given string prefixed
+// to each log message. Note that the subsystem of the original logger is kept
+// but any existing prefix is overridden.
+//
+// note: this is part of the handler interface.
+func (d *DefaultHandler) WithPrefix(prefix string) Handler {
+	return d.with(d.tag, prefix, false)
 }
 
 // with returns a new logger with the given attributes added.
 // withCallstackOffset should be false if the caller returns a concrete
 // DefaultHandler and true if the caller returns the Handler interface.
-func (d *DefaultHandler) with(tag string, withCallstackOffset bool,
+func (d *DefaultHandler) with(tag, prefix string, withCallstackOffset bool,
 	attrs ...slog.Attr) *DefaultHandler {
 
 	d.mu.Lock()
@@ -288,6 +304,7 @@ func (d *DefaultHandler) with(tag string, withCallstackOffset bool,
 	sl.fields = append(sl.fields, attrs...)
 	sl.callstackOffset = withCallstackOffset
 	sl.tag = tag
+	sl.prefix = prefix
 
 	return &sl
 }
@@ -309,7 +326,16 @@ func (d *DefaultHandler) appendAttr(buf *buffer, a slog.Attr) {
 
 // writeLevel writes the given slog.Level to the buffer in its string form.
 func (d *DefaultHandler) writeLevel(buf *buffer, level slog.Level) {
-	buf.writeString(d.opts.styledLevel(fromSlogLevel(level)))
+	lvl := fromSlogLevel(level)
+	if d.opts.styledLevel != nil {
+		buf.writeString(d.opts.styledLevel(fromSlogLevel(level)))
+
+		return
+	}
+
+	buf.writeByte('[')
+	buf.writeString(lvl.String())
+	buf.writeByte(']')
 }
 
 // writeCallSite writes the given file path and line number to the buffer as a
@@ -318,9 +344,17 @@ func (d *DefaultHandler) writeCallSite(buf *buffer, file string, line int) {
 	if file == "" {
 		return
 	}
-	buf.writeString(" ")
+	buf.writeByte(' ')
 
-	buf.writeString(d.opts.styledCallSite(file, line))
+	if d.opts.styledCallSite != nil {
+		buf.writeString(d.opts.styledCallSite(file, line))
+
+		return
+	}
+
+	*buf = append(*buf, file...)
+	buf.writeByte(':')
+	itoa(buf, line, -1)
 }
 
 // appendString writes the given string to the buffer. It may wrap the string in
@@ -336,13 +370,19 @@ func appendString(buf *buffer, str string) {
 // appendKey writes the given key string to the buffer along with an `=`
 // character. This is generally useful before calling appendValue.
 func (d *DefaultHandler) appendKey(buf *buffer, key string) {
-	buf.writeString(" ")
+	buf.writeByte(' ')
 	if needsQuoting(key) {
 		key = strconv.Quote(key)
 	}
 	key += "="
 
-	buf.writeString(d.opts.styledKey(key))
+	if d.opts.styledKey != nil {
+		buf.writeString(d.opts.styledKey(key))
+
+		return
+	}
+
+	buf.writeString(key)
 }
 
 // appendValue writes the given slog.Value to the buffer.
