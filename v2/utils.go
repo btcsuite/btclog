@@ -94,6 +94,9 @@ func needsQuoting(s string) bool {
 	if len(s) == 0 {
 		return true
 	}
+	if strings.ContainsRune(s, '\n') {
+		return false
+	}
 	for i := 0; i < len(s); {
 		b := s[i]
 		if b < utf8.RuneSelf {

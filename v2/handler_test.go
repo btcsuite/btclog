@@ -139,6 +139,7 @@ var tests = []struct {
 			log.InfoS(ctx, "Multi word string value", "key with spaces", "value")
 			log.InfoS(ctx, "Number attribute", "key", 5)
 			log.InfoS(ctx, "Bad key", "key")
+			log.InfoS(ctx, "Log with new line", "key", "value\nvalue")
 
 			type b struct {
 				name    string
@@ -160,6 +161,8 @@ var tests = []struct {
 [INF]: Multi word string value "key with spaces"=value
 [INF]: Number attribute key=5
 [INF]: Bad key !BADKEY=key
+[INF]: Log with new line key=value
+value
 [INF]: Nil pointer value key=<nil>
 [INF]: Struct values key="&{name:Bob age:5 address:<nil>}"
 [INF]: Test context attributes request_id=5 user_name=alice key=value
