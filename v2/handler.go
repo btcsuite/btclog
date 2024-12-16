@@ -119,18 +119,18 @@ func WithNoTimestamp() HandlerOption {
 // DefaultHandler is a Handler that can be used along with NewSLogger to
 // instantiate a structured logger.
 type DefaultHandler struct {
-	opts *handlerOpts
-
 	level           int64
 	tag             string
 	prefix          string
 	fields          []slog.Attr
-	callstackOffset bool
-
-	flag uint32
+	
+	opts *handlerOpts
 	buf  *buffer
 	mu   *sync.Mutex
 	w    io.Writer
+	
+	flag uint32
+	callstackOffset bool
 }
 
 // A compile-time check to ensure that DefaultHandler implements Handler.
