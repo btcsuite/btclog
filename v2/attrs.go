@@ -14,11 +14,29 @@ func Hex(key string, value []byte) slog.Attr {
 // Hex6 is a convenience function for hex-encoded log attributes which prints
 // a maximum of 6 bytes.
 func Hex6(key string, value []byte) slog.Attr {
-	if len(value) <= 6 {
+	return HexN(key, value, 6)
+}
+
+// Hex3 is a convenience function for hex-encoded log attributes which prints
+// a maximum of 3 bytes.
+func Hex3(key string, value []byte) slog.Attr {
+	return HexN(key, value, 3)
+}
+
+// Hex2 is a convenience function for hex-encoded log attributes which prints
+// a maximum of 2 bytes.
+func Hex2(key string, value []byte) slog.Attr {
+	return HexN(key, value, 2)
+}
+
+// HexN is a convenience function for hex-encoded log attributes which prints
+// a maximum of n bytes.
+func HexN(key string, value []byte, n uint) slog.Attr {
+	if len(value) <= int(n) {
 		return slog.String(key, hex.EncodeToString(value))
 	}
 
-	return slog.String(key, hex.EncodeToString(value[:6]))
+	return slog.String(key, hex.EncodeToString(value[:n]))
 }
 
 // Fmt returns a slog.Attr with the formatted message which is only computed
