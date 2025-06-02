@@ -119,18 +119,20 @@ func WithNoTimestamp() HandlerOption {
 // DefaultHandler is a Handler that can be used along with NewSLogger to
 // instantiate a structured logger.
 type DefaultHandler struct {
+	level atomic.Int64
+
 	opts *handlerOpts
-
-	level           int64
-	tag             string
-	prefix          string
-	fields          []slog.Attr
-	callstackOffset bool
-
-	flag uint32
 	buf  *buffer
 	mu   *sync.Mutex
 	w    io.Writer
+
+	tag    string
+	prefix string
+
+	fields []slog.Attr
+
+	flag            uint32
+	callstackOffset bool
 }
 
 // A compile-time check to ensure that DefaultHandler implements Handler.
@@ -140,7 +142,7 @@ var _ Handler = (*DefaultHandler)(nil)
 //
 // NOTE: This is part of the Handler interface.
 func (d *DefaultHandler) Level() btclog.Level {
-	return fromSlogLevel(slog.Level(atomic.LoadInt64(&d.level)))
+	return fromSlogLevel(slog.Level(d.level.Load()))
 }
 
 // SetLevel changes the logging level of the Handler to the passed
@@ -148,7 +150,7 @@ func (d *DefaultHandler) Level() btclog.Level {
 //
 // NOTE: This is part of the Handler interface.
 func (d *DefaultHandler) SetLevel(level btclog.Level) {
-	atomic.StoreInt64(&d.level, int64(toSlogLevel(level)))
+	d.level.Store(int64(toSlogLevel(level)))
 }
 
 // NewDefaultHandler creates a new Handler that can be used along with
@@ -159,20 +161,22 @@ func NewDefaultHandler(w io.Writer, options ...HandlerOption) *DefaultHandler {
 		o(opts)
 	}
 
-	return &DefaultHandler{
-		w:     w,
-		level: int64(levelInfo),
-		opts:  opts,
-		buf:   newBuffer(),
-		mu:    &sync.Mutex{},
+	handler := &DefaultHandler{
+		w:    w,
+		opts: opts,
+		buf:  newBuffer(),
+		mu:   &sync.Mutex{},
 	}
+	handler.level.Store(int64(levelInfo))
+
+	return handler
 }
 
 // Enabled reports whether the handler handles records at the given level.
 //
 // NOTE: this is part of the slog.Handler interface.
 func (d *DefaultHandler) Enabled(_ context.Context, level slog.Level) bool {
-	return atomic.LoadInt64(&d.level) <= int64(level)
+	return d.level.Load() <= int64(level)
 }
 
 // Handle handles the Record. It will only be called if Enabled returns true.
