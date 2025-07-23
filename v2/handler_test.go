@@ -400,3 +400,63 @@ func TestSubSystemLevelIndependence(t *testing.T) {
 			buf.String())
 	}
 }
+
+// TestWithPrefixLevelInheritance tests that child loggers created with
+// WithPrefix properly inherit level changes from their parent logger.
+//
+// NOTE: This currently demonstrate that inheritance is not working as expected.
+// This will be fixed in the next commit.
+func TestWithPrefixLevelInheritance(t *testing.T) {
+	t.Parallel()
+
+	var (
+		buf     bytes.Buffer
+		handler = NewDefaultHandler(&buf)
+		logger  = NewSLogger(handler)
+	)
+
+	// Set initial level to Info.
+	logger.SetLevel(LevelInfo)
+
+	// Create a child logger with prefix.
+	childLogger := logger.WithPrefix("child")
+
+	// Both loggers should have the same level.
+	if logger.Level() != childLogger.Level() {
+		t.Fatalf("Child logger level mismatch. Expected %s, got %s",
+			logger.Level(), childLogger.Level())
+	}
+
+	// Debug messages should not appear (level is Info).
+	logger.Debug("parent debug")
+	childLogger.Debug("child debug")
+
+	// Assert that neither logger wrote to the buffer.
+	if buf.String() != "" {
+		t.Fatalf("Debug messages should not appear. Got: %s",
+			buf.String())
+	}
+
+	// Now, change parent level to Debug.
+	logger.SetLevel(LevelDebug)
+
+	// Reset buffer.
+	buf.Reset()
+
+	// Now debug messages should appear from both loggers.
+	logger.Debug("parent debug")
+	childLogger.Debug("child debug")
+
+	// Show that the buffer contains the parent log.
+	if !bytes.Contains(buf.Bytes(), []byte("parent debug")) {
+		t.Fatalf("Parent debug message not found in output: %s",
+			buf.String())
+	}
+
+	// Show that the buffer currently _does not_ contain the child log.
+	// NOTE: This is a bug and will be fixed in the next commit.
+	if bytes.Contains(buf.Bytes(), []byte("child debug")) {
+		t.Fatalf("Child debug message found in output: %s",
+			buf.String())
+	}
+}
