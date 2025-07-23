@@ -403,9 +403,6 @@ func TestSubSystemLevelIndependence(t *testing.T) {
 
 // TestWithPrefixLevelInheritance tests that child loggers created with
 // WithPrefix properly inherit level changes from their parent logger.
-//
-// NOTE: This currently demonstrate that inheritance is not working as expected.
-// This will be fixed in the next commit.
 func TestWithPrefixLevelInheritance(t *testing.T) {
 	t.Parallel()
 
@@ -440,6 +437,12 @@ func TestWithPrefixLevelInheritance(t *testing.T) {
 	// Now, change parent level to Debug.
 	logger.SetLevel(LevelDebug)
 
+	// Both loggers should have the same level.
+	if logger.Level() != childLogger.Level() {
+		t.Fatalf("Child logger level mismatch. Expected %s, got %s",
+			logger.Level(), childLogger.Level())
+	}
+
 	// Reset buffer.
 	buf.Reset()
 
@@ -453,10 +456,9 @@ func TestWithPrefixLevelInheritance(t *testing.T) {
 			buf.String())
 	}
 
-	// Show that the buffer currently _does not_ contain the child log.
-	// NOTE: This is a bug and will be fixed in the next commit.
-	if bytes.Contains(buf.Bytes(), []byte("child debug")) {
-		t.Fatalf("Child debug message found in output: %s",
+	// Show that the buffer contains the child log.
+	if !bytes.Contains(buf.Bytes(), []byte("child debug")) {
+		t.Fatalf("Child debug message not found in output: %s",
 			buf.String())
 	}
 }

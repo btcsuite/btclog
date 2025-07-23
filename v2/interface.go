@@ -106,6 +106,10 @@ type Logger interface {
 	// WithPrefix returns a copy of the logger but with the given string
 	// prefixed to each log message. Note that the subsystem of the original
 	// logger is kept but any existing prefix is overridden.
+	//
+	// NOTE: this creates a new logger with an inherited log level. This
+	// means that if SetLevel is called on the parent logger, then this new
+	// level will be inherited by the new logger
 	WithPrefix(prefix string) Logger
 }
 
