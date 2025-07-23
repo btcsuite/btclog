@@ -26,6 +26,11 @@ type Handler interface {
 	SetLevel(level btclog.Level)
 
 	// SubSystem returns a copy of the given handler but with the new tag.
+	//
+	// NOTE: this creates a new logger with an independent log level. This
+	// means that SetLevel needs to be called on the new logger to change
+	// the level as any changes to the parent logger's level after creation
+	// will not be inherited by the new logger.
 	SubSystem(tag string) Handler
 
 	// WithPrefix returns a copy of the Handler but with the given string

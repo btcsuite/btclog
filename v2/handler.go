@@ -276,7 +276,12 @@ func (d *DefaultHandler) WithGroup(name string) slog.Handler {
 // attributes added with WithAttrs will be kept but all groups added with
 // WithGroup are lost.
 //
-// note: this is part of the handler interface.
+// NOTE: this creates a new logger with an independent log level. This
+// means that SetLevel needs to be called on the new logger to change
+// the level as any changes to the parent logger's level after creation
+// will not be inherited by the new logger.
+//
+// NOTE: this is part of the Handler interface.
 func (d *DefaultHandler) SubSystem(tag string) Handler {
 	return d.with(tag, d.prefix, false)
 }
