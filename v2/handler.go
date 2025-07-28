@@ -119,7 +119,7 @@ func WithNoTimestamp() HandlerOption {
 // DefaultHandler is a Handler that can be used along with NewSLogger to
 // instantiate a structured logger.
 type DefaultHandler struct {
-	level atomic.Int64
+	level *atomic.Int64
 
 	opts *handlerOpts
 	buf  *buffer
@@ -162,10 +162,11 @@ func NewDefaultHandler(w io.Writer, options ...HandlerOption) *DefaultHandler {
 	}
 
 	handler := &DefaultHandler{
-		w:    w,
-		opts: opts,
-		buf:  newBuffer(),
-		mu:   &sync.Mutex{},
+		w:     w,
+		opts:  opts,
+		buf:   newBuffer(),
+		mu:    &sync.Mutex{},
+		level: &atomic.Int64{},
 	}
 	handler.level.Store(int64(levelInfo))
 
@@ -257,7 +258,7 @@ func (d *DefaultHandler) Handle(_ context.Context, r slog.Record) error {
 //
 // NOTE: this is part of the slog.Handler interface.
 func (d *DefaultHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return d.with(d.tag, d.prefix, true, attrs...)
+	return d.with(d.tag, d.prefix, true, false, attrs...)
 }
 
 // WithGroup returns a new Handler with the given group appended to
@@ -269,32 +270,43 @@ func (d *DefaultHandler) WithGroup(name string) slog.Handler {
 	if d.tag != "" {
 		name = d.tag + "." + name
 	}
-	return d.with(name, d.prefix, true)
+	return d.with(name, d.prefix, true, false)
 }
 
 // SubSystem returns a copy of the given handler but with the new tag. All
 // attributes added with WithAttrs will be kept but all groups added with
 // WithGroup are lost.
 //
-// note: this is part of the handler interface.
+// NOTE: this creates a new logger with an independent log level. This
+// means that SetLevel needs to be called on the new logger to change
+// the level as any changes to the parent logger's level after creation
+// will not be inherited by the new logger.
+//
+// NOTE: this is part of the Handler interface.
 func (d *DefaultHandler) SubSystem(tag string) Handler {
-	return d.with(tag, d.prefix, false)
+	return d.with(tag, d.prefix, false, false)
 }
 
 // WithPrefix returns a copy of the Handler but with the given string prefixed
 // to each log message. Note that the subsystem of the original logger is kept
 // but any existing prefix is overridden.
 //
-// note: this is part of the handler interface.
+// NOTE: this creates a new logger with an inherited log level. This
+// means that if SetLevel is called on the parent logger, then this new
+// level will be inherited by the new logger
+//
+// NOTE: this is part of the Handler interface.
 func (d *DefaultHandler) WithPrefix(prefix string) Handler {
-	return d.with(d.tag, prefix, false)
+	return d.with(d.tag, prefix, false, true)
 }
 
 // with returns a new logger with the given attributes added.
 // withCallstackOffset should be false if the caller returns a concrete
 // DefaultHandler and true if the caller returns the Handler interface.
+// The shareLevel param determines whether the new handler shares the same
+// level reference or gets its own independent level.
 func (d *DefaultHandler) with(tag, prefix string, withCallstackOffset bool,
-	attrs ...slog.Attr) *DefaultHandler {
+	shareLevel bool, attrs ...slog.Attr) *DefaultHandler {
 
 	d.mu.Lock()
 	sl := *d
@@ -309,6 +321,14 @@ func (d *DefaultHandler) with(tag, prefix string, withCallstackOffset bool,
 	sl.callstackOffset = withCallstackOffset
 	sl.tag = tag
 	sl.prefix = prefix
+
+	// If shareLevel is false, create a new independent level. Otherwise,
+	// sl.level already points to d.level.
+	if !shareLevel {
+		newLevel := &atomic.Int64{}
+		newLevel.Store(d.level.Load())
+		sl.level = newLevel
+	}
 
 	return &sl
 }

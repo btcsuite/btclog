@@ -96,11 +96,20 @@ type Logger interface {
 
 	// SubSystem returns a copy of the logger but with the new subsystem
 	// tag.
+	//
+	// NOTE: this creates a new logger with an independent log level. This
+	// means that SetLevel needs to be called on the new logger to change
+	// the level as any changes to the parent logger's level after creation
+	// will not be inherited by the new logger.
 	SubSystem(tag string) Logger
 
 	// WithPrefix returns a copy of the logger but with the given string
 	// prefixed to each log message. Note that the subsystem of the original
 	// logger is kept but any existing prefix is overridden.
+	//
+	// NOTE: this creates a new logger with an inherited log level. This
+	// means that if SetLevel is called on the parent logger, then this new
+	// level will be inherited by the new logger
 	WithPrefix(prefix string) Logger
 }
 

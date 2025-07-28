@@ -298,3 +298,167 @@ value
 `,
 	},
 }
+
+// TestSubSystemLevelIndependence tests that child loggers created with
+// SubSystem have independent level control and don't affect their parent's
+// level.
+func TestSubSystemLevelIndependence(t *testing.T) {
+	t.Parallel()
+
+	var (
+		buf     bytes.Buffer
+		handler = NewDefaultHandler(&buf)
+		logger  = NewSLogger(handler)
+	)
+
+	// Set initial level to Info.
+	logger.SetLevel(LevelInfo)
+
+	// Create a child logger with subsystem.
+	childLogger := logger.SubSystem("CHILD")
+
+	// Both loggers should initially have the same level.
+	if logger.Level() != childLogger.Level() {
+		t.Fatalf("Child logger level mismatch. Expected %s, got %s",
+			logger.Level(), childLogger.Level())
+	}
+
+	// Debug messages should not appear (level is Info).
+	logger.Debug("parent debug")
+	childLogger.Debug("child debug")
+
+	// Assert that neither logger wrote to the buffer.
+	if buf.String() != "" {
+		t.Fatalf("Debug messages should not appear. Got: %s",
+			buf.String())
+	}
+
+	// Now, change ONLY child level to Debug.
+	childLogger.SetLevel(LevelDebug)
+
+	// Loggers should now have different levels.
+	if logger.Level() == childLogger.Level() {
+		t.Fatalf("Child logger should have independent level. "+
+			"Parent: %s, Child: %s", logger.Level(),
+			childLogger.Level())
+	}
+
+	// Verify parent is still Info and child is Debug.
+	if logger.Level() != LevelInfo {
+		t.Fatalf("Parent level should still be Info. Got: %s",
+			logger.Level())
+	}
+
+	if childLogger.Level() != LevelDebug {
+		t.Fatalf("Child level should be Debug. Got: %s",
+			childLogger.Level())
+	}
+
+	// Reset buffer.
+	buf.Reset()
+
+	// Debug messages should only appear from child.
+	logger.Debug("parent debug")
+	childLogger.Debug("child debug")
+
+	// Parent debug should NOT appear.
+	if bytes.Contains(buf.Bytes(), []byte("parent debug")) {
+		t.Fatalf("Parent debug message should not appear. Got: %s",
+			buf.String())
+	}
+
+	// Child debug SHOULD appear.
+	if !bytes.Contains(buf.Bytes(), []byte("child debug")) {
+		t.Fatalf("Child debug message should appear. Got: %s",
+			buf.String())
+	}
+
+	// Reset buffer.
+	buf.Reset()
+
+	// Change parent level to Debug.
+	logger.SetLevel(LevelDebug)
+
+	// Child level should remain unchanged.
+	if childLogger.Level() != LevelDebug {
+		t.Fatalf("Child level should remain Debug. Got: %s",
+			childLogger.Level())
+	}
+
+	// Now both should log debug messages.
+	logger.Debug("parent debug 2")
+	childLogger.Debug("child debug 2")
+
+	// Both messages should appear.
+	if !bytes.Contains(buf.Bytes(), []byte("parent debug 2")) {
+		t.Fatalf("Parent debug message should appear. Got: %s",
+			buf.String())
+	}
+
+	if !bytes.Contains(buf.Bytes(), []byte("child debug 2")) {
+		t.Fatalf("Child debug message should appear. Got: %s",
+			buf.String())
+	}
+}
+
+// TestWithPrefixLevelInheritance tests that child loggers created with
+// WithPrefix properly inherit level changes from their parent logger.
+func TestWithPrefixLevelInheritance(t *testing.T) {
+	t.Parallel()
+
+	var (
+		buf     bytes.Buffer
+		handler = NewDefaultHandler(&buf)
+		logger  = NewSLogger(handler)
+	)
+
+	// Set initial level to Info.
+	logger.SetLevel(LevelInfo)
+
+	// Create a child logger with prefix.
+	childLogger := logger.WithPrefix("child")
+
+	// Both loggers should have the same level.
+	if logger.Level() != childLogger.Level() {
+		t.Fatalf("Child logger level mismatch. Expected %s, got %s",
+			logger.Level(), childLogger.Level())
+	}
+
+	// Debug messages should not appear (level is Info).
+	logger.Debug("parent debug")
+	childLogger.Debug("child debug")
+
+	// Assert that neither logger wrote to the buffer.
+	if buf.String() != "" {
+		t.Fatalf("Debug messages should not appear. Got: %s",
+			buf.String())
+	}
+
+	// Now, change parent level to Debug.
+	logger.SetLevel(LevelDebug)
+
+	// Both loggers should have the same level.
+	if logger.Level() != childLogger.Level() {
+		t.Fatalf("Child logger level mismatch. Expected %s, got %s",
+			logger.Level(), childLogger.Level())
+	}
+
+	// Reset buffer.
+	buf.Reset()
+
+	// Now debug messages should appear from both loggers.
+	logger.Debug("parent debug")
+	childLogger.Debug("child debug")
+
+	// Show that the buffer contains the parent log.
+	if !bytes.Contains(buf.Bytes(), []byte("parent debug")) {
+		t.Fatalf("Parent debug message not found in output: %s",
+			buf.String())
+	}
+
+	// Show that the buffer contains the child log.
+	if !bytes.Contains(buf.Bytes(), []byte("child debug")) {
+		t.Fatalf("Child debug message not found in output: %s",
+			buf.String())
+	}
+}
