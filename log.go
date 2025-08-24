@@ -473,8 +473,8 @@ func (l *slog) SetLevel(level Level) {
 }
 
 // Disabled is a Logger that will never output anything.
-var Disabled Logger
+var Disabled Logger = &slog{lvl: LevelOff, b: NewBackend(ioutil.Discard)}
 
-func init() {
-	Disabled = &slog{lvl: LevelOff, b: NewBackend(ioutil.Discard)}
-}
+// TestLogger is a Logger intended for unit testing that will log all messages
+// to Stdout.
+var TestLogger Logger = &slog{lvl: LevelTrace, b: NewBackend(os.Stdout)}
