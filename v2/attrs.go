@@ -32,6 +32,11 @@ func Hex2(key string, value []byte) slog.Attr {
 // HexN is a convenience function for hex-encoded log attributes which prints
 // a maximum of n bytes.
 func HexN(key string, value []byte, n uint) slog.Attr {
+	// Handle nil slice gracefully.
+	if value == nil {
+		return slog.String(key, "<nil>")
+	}
+
 	if len(value) <= int(n) {
 		return slog.String(key, hex.EncodeToString(value))
 	}
